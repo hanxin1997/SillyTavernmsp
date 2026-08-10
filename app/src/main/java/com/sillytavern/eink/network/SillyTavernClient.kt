@@ -63,7 +63,7 @@ class SillyTavernClient(context: Context, val profile: ServerProfile) {
             var bootstrap = try {
                 getObject("/api/plugins/eink-companion/v1/bootstrap")
             } catch (error: ApiException) {
-                if (error.status != 403 || profile.handle.isBlank()) throw@withContext error
+                if (error.status != 403 || profile.handle.isBlank()) throw error
                 login(password)
                 getObject("/api/plugins/eink-companion/v1/bootstrap")
             }
