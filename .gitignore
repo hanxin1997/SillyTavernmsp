@@ -1,0 +1,16 @@
+# Gradle and Android build outputs
+.gradle/
+**/build/
+
+# Local Android SDK path and IDE state
+local.properties
+.idea/
+*.iml
+
+# Signing material must never be committed
+*.jks
+*.keystore
+
+# Operating-system files
+.DS_Store
+Thumbs.db

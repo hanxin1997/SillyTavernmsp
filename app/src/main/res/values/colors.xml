@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ink_black">#000000</color>
+    <color name="ink_white">#FFFFFF</color>
+    <color name="ink_gray">#666666</color>
+    <color name="ink_line">#B0B0B0</color>
+    <color name="ink_pressed">#D8D8D8</color>
+</resources>
