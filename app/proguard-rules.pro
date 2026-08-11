@@ -1,2 +1,1 @@
--keep class androidx.room.** { *; }
--keep class com.sillytavern.eink.data.** { *; }
+# AndroidX WebKit provides the origin-scoped WebMessage bridge.

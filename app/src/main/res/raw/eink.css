@@ -1,0 +1,46 @@
+/* Balanced defaults for reflective displays. Do not hide controls or media. */
+:root {
+    color-scheme: light;
+    --st-eink-border: #777;
+    --interactable-outline-color: #000;
+    --interactable-outline-color-faint: #777;
+    --greyCAIbg: #fff;
+    --SmartThemeBodyColor: #000;
+    --SmartThemeEmColor: #333;
+    --SmartThemeUnderlineColor: #000;
+    --SmartThemeQuoteColor: #222;
+    --SmartThemeBlurTintColor: #fff;
+    --SmartThemeChatTintColor: #fff;
+    --SmartThemeUserMesBlurTintColor: #eee;
+    --SmartThemeBotMesBlurTintColor: #fff;
+    --SmartThemeBlurStrength: 0px;
+    --SmartThemeShadowColor: transparent;
+    --SmartThemeBorderColor: #777;
+}
+
+*, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+    text-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+html, body {
+    background: #fff !important;
+    color: #000 !important;
+}
+
+img, video, canvas {
+    box-shadow: none !important;
+}
+
+button, input, textarea, select {
+    box-shadow: none !important;
+}
+
+/* Keep a readable focus indicator for hardware-key and touch navigation. */
+:focus-visible {
+    outline: 2px solid #000 !important;
+    outline-offset: 2px !important;
+}

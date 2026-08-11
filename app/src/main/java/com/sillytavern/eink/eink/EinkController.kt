@@ -3,6 +3,7 @@ package com.sillytavern.eink.eink
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.webkit.WebView
 
 interface EinkController {
     fun contentChanged(view: View)
@@ -37,6 +38,11 @@ class GenericEinkController : EinkController {
         partialCount = 0
         view.invalidate()
     }
+
+    /** Hardware page keys use a fixed viewport step so the layout never jumps. */
+    fun pageUp(webView: WebView) = webView.evaluateJavascript("window.scrollBy(0, -Math.round(window.innerHeight * 0.85));", null)
+
+    fun pageDown(webView: WebView) = webView.evaluateJavascript("window.scrollBy(0, Math.round(window.innerHeight * 0.85));", null)
 
     fun dispose() {
         pending?.let(handler::removeCallbacks)

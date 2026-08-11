@@ -1,64 +1,40 @@
-# SillyTavern E-ink Android Client
+# SillyTavern 墨水屏浏览器客户端
 
-Native Android client for the removable `eink-companion` SillyTavern server plugin.
+这是一个面向电纸书的 Android 浏览器壳。它只负责安全保存登录信息、处理会话、提供文件和外链能力，以及对 WebView 做墨水屏优化；角色、聊天、群聊、世界书、预设、扩展和模型设置全部来自服务器上的完整 SillyTavern 网页。
 
-## Requirements
+## 使用方法
 
-- Android 8.0 / API 26 or newer
-- JDK 17
-- Android SDK Platform 35 and Build Tools 35.0.0
-- Gradle 8.9 or Android Studio with a compatible Gradle installation
-- The server plugin enabled at `/api/plugins/eink-companion/v1`
+1. 在 SillyTavern 所在服务器上启动网页服务。远程电纸书访问时，需要在 `config.yaml` 中启用 `listen: true`，并把电纸书的 IP 或局域网网段加入 `whitelist`。
+2. 优先使用 HTTPS。仅在可信家庭或局域网内使用 HTTP；客户端第一次连接私网 HTTP 会显示风险确认，并检查 DNS 解析结果是否仍为私网地址。
+3. 安装 APK，首次打开填写服务器根地址、SillyTavern 用户名和密码，然后点击“连接并打开”。未启用 SillyTavern 用户账号时，用户名和密码可以留空。
+4. 密码会使用 Android Keystore 加密保存。下次打开会先恢复网页 Cookie，Cookie 失效后自动重新登录，不需要再次输入。
+5. 网页底部工具栏提供后退、前进、刷新、主页和设置。设置中可以关闭墨水模式、调整网页文字大小、整页刷新或清除登录信息。
+6. 电纸书的 Page Up/Page Down 按键按固定视口翻页。文件选择、附件上传、下载、Basic Auth 和外部链接按 Android 系统权限处理。
 
-This source tree intentionally does not include a generated Gradle wrapper JAR. Open it in Android Studio or build with an already installed compatible Gradle; no wrapper binary was available in the authoring environment.
+## 服务器安全要求
 
-The authoring machine did not have an Android/JDK/Gradle toolchain, so this tree was reviewed statically but was not compiled locally. Run a clean build and the unit tests on the target build machine.
+- 不要把 SillyTavern 的 8000 端口直接暴露到公网。
+- HTTPS 证书必须被 Android 系统信任；客户端不会忽略证书错误。
+- 如果服务器额外启用了 HTTP Basic Auth，客户端会在网页请求时单独询问 Basic Auth 凭据，可选择加密记住；它与 SillyTavern 用户密码分开保存。
+- 客户端不把密码注入网页脚本，也不会在日志、Intent 或普通配置中写入明文密码。
 
-## Build
+## 墨水屏兼容
+
+默认“平衡模式”会禁用网页动画、过渡、平滑滚动、透明模糊和高成本阴影，同时保留网页控件、图片、扩展、音视频和流式生成。通用 Android WebView 无法控制 BOOX、汉王或 Bigme 的硬件波形，因此物理全刷和残影效果必须在目标设备上验证。
+
+客户端依赖设备上的 Android System WebView。过旧的 WebView 可能不支持 SillyTavern 使用的 ES Modules、Fetch 流、IndexedDB、WASM 或部分扩展；请先将系统 WebView 更新到设备能提供的最新版本。
+
+## 构建 APK
+
+本工程不提交 Gradle Wrapper，也不要求在开发机安装 Android SDK、Java、Gradle、ADB 或 Docker。可以在已经配置好 Android 工具链的机器上运行：
 
 ```powershell
 $ErrorActionPreference = 'Stop'
 gradle --offline :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 ```
 
-Remove `--offline` when the declared Android and Maven artifacts are not already cached on the build machine.
+仓库中的 GitHub Actions 会安装 JDK 17、Gradle 8.9、Android API 35 和 Build Tools 35.0.0，完成测试、Lint 和 APK 构建。电纸书真机上的输入法、文件选择、网页扩展、翻页、残影和硬件刷新仍需要单独验收。
 
-## Build an APK with GitHub Actions
+## 说明
 
-Treat this `android-eink` directory as the root of its own GitHub repository. The workflow at `.github/workflows/build-extension.yml` installs JDK 17, Gradle 8.9, Android API 35, and Build Tools 35.0.0 on a GitHub-hosted runner. It then runs the unit tests and Android lint before building an installable debug APK.
-
-1. Push the complete contents of this directory, including the hidden `.github` directory, to GitHub.
-2. Open the repository's **Actions** tab and select **Build Android APK**.
-3. Choose **Run workflow**, select the branch, and confirm the run.
-4. After the run succeeds, open it and download the `sillytavern-eink-debug-<run number>` artifact.
-5. Unzip the artifact and install `app-debug.apk` on the Android device. The adjacent `.sha256` file can be used to verify the download.
-
-The same workflow also runs automatically when relevant project files are pushed or changed in a pull request. It produces a debug-signed APK intended for personal testing and does not need repository secrets. A distributable release APK requires a private signing key and a separate signing configuration; never commit a keystore or its passwords.
-
-## Server connection
-
-Remote servers require HTTPS validated by the Android trust store. The app never installs a permissive trust manager. Cleartext HTTP requires explicit approval and is limited in application code to localhost, `.local` names, and private IPv4/IPv6 address ranges.
-
-For LAN access, SillyTavern must listen on the LAN interface and its IP whitelist must include the e-reader. Do not expose port 8000 directly to the public internet.
-
-The current stream parser accepts OpenAI-compatible SSE, including sources such as OpenAI and OpenRouter. SillyTavern sources that return provider-native Claude, Google AI Studio (`makersuite`), or Cohere event schemas are rejected during connection with a clear error. They require a future normalization layer rather than being treated as compatible and silently losing output.
-
-## E-ink behavior
-
-- No animated transitions or message cards
-- High-contrast transcript layout
-- Stream rendering batched to approximately 750 ms
-- Page Up/Page Down hardware key support
-- Periodic full invalidation after partial updates
-- A vendor-neutral `EinkController` boundary for future BOOX, Hanvon, Bigme, or other SDK adapters
-
-The generic controller uses standard Android invalidation. Vendor waveform modes require the corresponding vendor SDK and physical-device verification.
-
-## Current boundaries
-
-- Persona positions `IN_PROMPT` and `NONE` are supported.
-- Token budgeting uses the companion plugin's conservative estimate, not exact tokenizer parity.
-- Groups, tools, Text Completion, and browser extension interception are not implemented.
-- Cookies are encrypted with an account-scoped Android Keystore key, and application backup is disabled.
-- Legacy SillyTavern browser writes cannot join the plugin's compare-and-swap critical section.
-- Direct plugin chat writes do not invoke SillyTavern's normal chat-backup route.
+新版客户端不需要 `eink-companion` 服务端插件，也不会修改 SillyTavern 的网页源码。这样服务器升级网页后，客户端可以继续使用同一套完整功能；客户端本身只维护浏览器能力和墨水屏适配。

@@ -3,122 +3,129 @@ package com.sillytavern.eink.ui
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.sillytavern.eink.EinkApplication
+import com.sillytavern.eink.data.CredentialStore
 import com.sillytavern.eink.databinding.ActivityMainBinding
-import com.sillytavern.eink.model.CharacterSummary
-import com.sillytavern.eink.model.ServerProfile
+import com.sillytavern.eink.model.StoredProfile
+import com.sillytavern.eink.network.AuthenticationResult
 import com.sillytavern.eink.network.NetworkPolicy
-import com.sillytavern.eink.network.SillyTavernClient
+import com.sillytavern.eink.network.PrivateLanHttpApprovalRequired
+import com.sillytavern.eink.network.SessionAuthenticationException
+import com.sillytavern.eink.network.WebSessionAuthenticator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
+/** Small Chinese connection screen. All feature UI lives in the real web app. */
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private lateinit var adapter: CharacterAdapter
-    private var client: SillyTavernClient? = null
-
-    private val applicationState get() = application as EinkApplication
+    private lateinit var credentialStore: CredentialStore
+    private val authenticator = WebSessionAuthenticator()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         applySystemBars(binding.root)
-        adapter = CharacterAdapter(::openCharacter)
-        binding.characters.layoutManager = LinearLayoutManager(this)
-        binding.characters.adapter = adapter
-        binding.characters.itemAnimator = null
-        applicationState.profileStore.load()?.let(::populate)
-        binding.connect.setOnClickListener { connect() }
-        binding.refresh.setOnClickListener { loadCharacters() }
+        credentialStore = CredentialStore(this)
+        binding.connect.setOnClickListener { connect(false) }
+
+        val saved = credentialStore.loadProfile()
+        val forceLogin = intent.getBooleanExtra(EXTRA_FORCE_LOGIN, false)
+        if (!forceLogin && saved != null && (saved.handle.isBlank() || credentialStore.loadPassword() != null)) {
+            openWeb()
+        } else {
+            saved?.let(::populate)
+        }
     }
 
-    private fun populate(profile: ServerProfile) = with(binding) {
+    private fun populate(profile: StoredProfile) = with(binding) {
         serverUrl.setText(profile.baseUrl)
         username.setText(profile.handle)
-        source.setText(profile.source)
-        model.setText(profile.model)
-        allowLanHttp.isChecked = profile.allowPrivateLanHttp
     }
 
-    private fun readProfile() = ServerProfile(
-        baseUrl = binding.serverUrl.text.toString().trim().trimEnd('/'),
-        handle = binding.username.text.toString().trim(),
-        source = binding.source.text.toString().trim().ifBlank { "openai" },
-        model = binding.model.text.toString().trim(),
-        allowPrivateLanHttp = binding.allowLanHttp.isChecked,
-    )
+    private fun readProfile(allowPrivateLanHttp: Boolean): StoredProfile {
+        val baseUrl = binding.serverUrl.text.toString().trim()
+        val existing = credentialStore.loadProfile()
+        val previouslyApproved = existing?.allowPrivateLanHttp == true &&
+            existing.baseUrl.trimEnd('/').equals(baseUrl.trimEnd('/'), ignoreCase = true)
+        return StoredProfile(
+            baseUrl = baseUrl,
+            handle = binding.username.text.toString().trim(),
+            allowPrivateLanHttp = allowPrivateLanHttp || previouslyApproved,
+        )
+    }
 
-    private fun connect() {
-        val profile = try {
-            readProfile().also { NetworkPolicy.validate(it) }
+    private fun connect(allowPrivateLanHttp: Boolean) {
+        val draft = try {
+            val requested = readProfile(allowPrivateLanHttp)
+            val origin = NetworkPolicy.normalizeBaseUrl(requested.baseUrl, requested.allowPrivateLanHttp)
+            requested.copy(baseUrl = origin.value)
+        } catch (approval: PrivateLanHttpApprovalRequired) {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.private_http_title)
+                .setMessage(R.string.private_http_message)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.continue_connect) { _, _ -> connect(true) }
+                .show()
+            return
         } catch (error: Exception) {
-            showError(error)
+            showError(error.message ?: getString(R.string.connection_failed))
             return
         }
-        client = applicationState.client(profile)
-        setBusy(true, "Connecting...")
+
+        val password = binding.password.text?.toString().orEmpty()
+        setBusy(true, getString(R.string.connecting))
         lifecycleScope.launch {
             try {
-                val active = client ?: return@launch
-                active.initialize(binding.password.text.toString())
-                applicationState.profileStore.save(profile)
-                binding.password.text?.clear()
-                showCharacters(active, active.getCharacters())
+                when (authenticator.authenticate(draft, password)) {
+                    AuthenticationResult.InvalidCredentials -> {
+                        showError(getString(R.string.wrong_credentials))
+                        return@launch
+                    }
+                    AuthenticationResult.BasicAuthRequired,
+                    AuthenticationResult.Success,
+                    AuthenticationResult.NoServerLoginRequired,
+                    -> {
+                        credentialStore.saveProfile(draft)
+                        if (draft.handle.isNotBlank()) credentialStore.savePassword(password)
+                        openWeb()
+                    }
+                }
             } catch (error: CancellationException) {
                 throw error
+            } catch (error: SessionAuthenticationException) {
+                showError(error.message ?: getString(R.string.connection_failed))
             } catch (error: Throwable) {
-                showError(error)
+                showError(error.message ?: getString(R.string.connection_failed))
             } finally {
                 setBusy(false)
             }
         }
     }
 
-    private fun loadCharacters() {
-        val active = client ?: applicationState.profileStore.load()?.let { applicationState.client(it).also { active -> client = active } } ?: return
-        setBusy(true, "Loading characters...")
-        lifecycleScope.launch {
-            try {
-                active.initialize()
-                showCharacters(active, active.getCharacters())
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Throwable) {
-                showError(error)
-            } finally {
-                setBusy(false)
-            }
-        }
+    private fun openWeb() {
+        startActivity(Intent(this, WebAppActivity::class.java))
+        finish()
     }
 
-    private fun showCharacters(active: SillyTavernClient, characters: List<CharacterSummary>) {
-        adapter.submitList(characters)
-        binding.status.text = buildString {
-            append("${characters.size} characters")
-            active.compatibilityWarning?.let { warning -> append(". $warning") }
-        }
-    }
-
-    private fun openCharacter(character: CharacterSummary) {
-        startActivity(Intent(this, ChatListActivity::class.java).apply {
-            putExtra(ChatListActivity.EXTRA_AVATAR, character.avatarUrl)
-            putExtra(ChatListActivity.EXTRA_NAME, character.name)
-            putExtra(ChatListActivity.EXTRA_WORLD, character.worldName)
-        })
-    }
-
-    private fun setBusy(busy: Boolean, text: String? = null) {
+    private fun setBusy(busy: Boolean, message: String? = null) {
         binding.connect.isEnabled = !busy
-        binding.refresh.isEnabled = !busy
-        binding.characters.visibility = if (busy && adapter.itemCount == 0) View.INVISIBLE else View.VISIBLE
-        if (text != null) binding.status.text = text
+        binding.serverUrl.isEnabled = !busy
+        binding.username.isEnabled = !busy
+        binding.password.isEnabled = !busy
+        if (message != null) binding.status.text = message
+        binding.status.visibility = if (busy || binding.status.text.isNotBlank()) View.VISIBLE else View.GONE
     }
 
-    private fun showError(error: Throwable) {
-        binding.status.text = error.message ?: "Connection failed"
+    private fun showError(message: String) {
+        binding.status.text = message
+        binding.status.visibility = View.VISIBLE
+        setBusy(false)
+    }
+
+    companion object {
+        const val EXTRA_FORCE_LOGIN = "force_login"
     }
 }
