@@ -6,6 +6,7 @@ import android.view.View
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.sillytavern.eink.R
 import com.sillytavern.eink.data.CredentialStore
 import com.sillytavern.eink.databinding.ActivityMainBinding
 import com.sillytavern.eink.model.StoredProfile
