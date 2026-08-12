@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.SillyTavernEink" parent="Theme.AppCompat.Light.NoActionBar">
+    <style name="Theme.SillyTavernEink.Base" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowBackground">@color/ink_white</item>
         <item name="android:colorAccent">@color/ink_black</item>
         <item name="android:navigationBarColor">@color/ink_white</item>
         <item name="android:statusBarColor">@color/ink_white</item>
-        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowAnimationStyle">@null</item>
     </style>
+
+    <style name="Theme.SillyTavernEink" parent="Theme.SillyTavernEink.Base" />
 </resources>
