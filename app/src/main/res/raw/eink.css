@@ -1,29 +1,39 @@
 /* Balanced defaults for reflective displays. Do not hide controls or media. */
 :root {
-    color-scheme: light;
-    --st-eink-border: #777;
-    --interactable-outline-color: #000;
-    --interactable-outline-color-faint: #777;
-    --greyCAIbg: #fff;
-    --SmartThemeBodyColor: #000;
-    --SmartThemeEmColor: #333;
-    --SmartThemeUnderlineColor: #000;
-    --SmartThemeQuoteColor: #222;
-    --SmartThemeBlurTintColor: #fff;
-    --SmartThemeChatTintColor: #fff;
-    --SmartThemeUserMesBlurTintColor: #eee;
-    --SmartThemeBotMesBlurTintColor: #fff;
-    --SmartThemeBlurStrength: 0px;
-    --SmartThemeShadowColor: transparent;
-    --SmartThemeBorderColor: #777;
+    color-scheme: light !important;
+    --st-eink-border: #777 !important;
+    --interactable-outline-color: #000 !important;
+    --interactable-outline-color-faint: #777 !important;
+    --greyCAIbg: #fff !important;
+    --SmartThemeBodyColor: #000 !important;
+    --SmartThemeEmColor: #333 !important;
+    --SmartThemeUnderlineColor: #000 !important;
+    --SmartThemeQuoteColor: #222 !important;
+    --SmartThemeBlurTintColor: #fff !important;
+    --SmartThemeChatTintColor: #fff !important;
+    --SmartThemeUserMesBlurTintColor: #eee !important;
+    --SmartThemeBotMesBlurTintColor: #fff !important;
+    --SmartThemeBlurStrength: 0px !important;
+    --SmartThemeShadowColor: transparent !important;
+    --SmartThemeBorderColor: #777 !important;
 }
 
 *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
+    animation-duration: 0.001s !important;
+    -webkit-animation-duration: 0.001s !important;
+    animation-delay: 0s !important;
+    -webkit-animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    -webkit-animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+    -webkit-transition-duration: 0.001s !important;
+    transition-delay: 0s !important;
+    -webkit-transition-delay: 0s !important;
     scroll-behavior: auto !important;
     text-shadow: none !important;
     backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
 }
 
 html, body {
@@ -31,12 +41,8 @@ html, body {
     color: #000 !important;
 }
 
-img, video, canvas {
-    box-shadow: none !important;
-}
-
-button, input, textarea, select {
-    box-shadow: none !important;
+#bg1, #bg_custom {
+    background-image: none !important;
 }
 
 /* Keep a readable focus indicator for hardware-key and touch navigation. */

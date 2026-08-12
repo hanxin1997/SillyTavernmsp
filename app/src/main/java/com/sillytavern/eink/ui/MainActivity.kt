@@ -8,7 +8,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.sillytavern.eink.R
 import com.sillytavern.eink.data.CredentialStore
+import com.sillytavern.eink.data.ProxySettingsStore
 import com.sillytavern.eink.databinding.ActivityMainBinding
+import com.sillytavern.eink.model.ProxySettings
+import com.sillytavern.eink.model.ProxyType
 import com.sillytavern.eink.model.StoredProfile
 import com.sillytavern.eink.network.AuthenticationResult
 import com.sillytavern.eink.network.NetworkPolicy
@@ -22,6 +25,7 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var credentialStore: CredentialStore
+    private lateinit var proxySettingsStore: ProxySettingsStore
     private val authenticator = WebSessionAuthenticator()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,7 +34,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         applySystemBars(binding.root)
         credentialStore = CredentialStore(this)
+        proxySettingsStore = ProxySettingsStore(this)
         binding.connect.setOnClickListener { connect(false) }
+        binding.proxySettings.setOnClickListener { showProxySettings() }
+        updateProxySummary(proxySettingsStore.load())
 
         val saved = credentialStore.loadProfile()
         val forceLogin = intent.getBooleanExtra(EXTRA_FORCE_LOGIN, false)
@@ -111,11 +118,32 @@ class MainActivity : AppCompatActivity() {
         finish()
     }
 
+    private fun showProxySettings() {
+        ProxySettingsDialog.show(this, proxySettingsStore.load()) { settings ->
+            proxySettingsStore.save(settings)
+            updateProxySummary(settings)
+        }
+    }
+
+    private fun updateProxySummary(settings: ProxySettings) {
+        binding.proxySummary.text = if (!settings.enabled) {
+            getString(R.string.proxy_disabled_summary)
+        } else {
+            val type = when (settings.type) {
+                ProxyType.HTTP -> getString(R.string.proxy_type_http)
+                ProxyType.HTTPS -> getString(R.string.proxy_type_https)
+                ProxyType.SOCKS5 -> getString(R.string.proxy_type_socks5)
+            }
+            getString(R.string.proxy_summary_format, type, settings.host, settings.port)
+        }
+    }
+
     private fun setBusy(busy: Boolean, message: String? = null) {
         binding.connect.isEnabled = !busy
         binding.serverUrl.isEnabled = !busy
         binding.username.isEnabled = !busy
         binding.password.isEnabled = !busy
+        binding.proxySettings.isEnabled = !busy
         if (message != null) binding.status.text = message
         binding.status.visibility = if (busy || binding.status.text.isNotBlank()) View.VISIBLE else View.GONE
     }

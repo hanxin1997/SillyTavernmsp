@@ -23,8 +23,10 @@
     <string name="clear_credentials">清除登录信息</string>
     <string name="switch_server">切换服务器</string>
     <string name="logout">退出登录</string>
-    <string name="eink_mode">墨水屏平衡模式</string>
-    <string name="eink_mode_description">关闭网页动画、模糊和高成本阴影，保留所有功能。</string>
+    <string name="eink_theme">墨水屏显示模式</string>
+    <string name="eink_theme_off">关闭（使用网页原主题）</string>
+    <string name="eink_theme_balanced">平衡模式</string>
+    <string name="eink_theme_high_contrast">白底黑字高对比</string>
     <string name="font_size">网页文字大小</string>
     <string name="font_size_small">小</string>
     <string name="font_size_normal">标准</string>
@@ -42,4 +44,16 @@
     <string name="renderer_crashed">网页渲染进程已崩溃，请重新加载。</string>
     <string name="download_saved">文件已保存到应用下载目录。</string>
     <string name="download_failed">文件保存失败。</string>
+    <string name="proxy_settings">应用内网页代理</string>
+    <string name="proxy_enabled">启用代理</string>
+    <string name="proxy_type">代理类型</string>
+    <string name="proxy_type_http">HTTP</string>
+    <string name="proxy_type_https">HTTPS</string>
+    <string name="proxy_type_socks5">SOCKS5</string>
+    <string name="proxy_host">代理主机，例如 127.0.0.1</string>
+    <string name="proxy_port">代理端口，例如 1080</string>
+    <string name="proxy_scope_note">当前 SillyTavern 主机保持直连，网页中的外部资源经过代理。系统浏览器和系统下载不继承此设置。仅支持无认证代理。</string>
+    <string name="proxy_invalid">代理配置无效。</string>
+    <string name="proxy_disabled_summary">当前未启用应用内网页代理。</string>
+    <string name="proxy_summary_format">%1$s · %2$s:%3$d</string>
 </resources>

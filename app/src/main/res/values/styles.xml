@@ -6,7 +6,9 @@
         <item name="android:colorAccent">@color/ink_black</item>
         <item name="android:navigationBarColor">@color/ink_white</item>
         <item name="android:statusBarColor">@color/ink_white</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowAnimationStyle">@null</item>
     </style>
 </resources>

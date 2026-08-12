@@ -27,6 +27,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -34,16 +35,24 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.sillytavern.eink.R
 import com.sillytavern.eink.data.CredentialStore
+import com.sillytavern.eink.data.EinkSettingsStore
+import com.sillytavern.eink.data.EinkWebSettings
+import com.sillytavern.eink.data.ProxySettingsStore
 import com.sillytavern.eink.databinding.ActivityWebAppBinding
+import com.sillytavern.eink.eink.EinkStyleInjector
+import com.sillytavern.eink.eink.EinkThemeMode
 import com.sillytavern.eink.eink.GenericEinkController
 import com.sillytavern.eink.model.StoredProfile
 import com.sillytavern.eink.network.AuthenticationResult
 import com.sillytavern.eink.network.NetworkPolicy
 import com.sillytavern.eink.network.SessionAuthenticationException
+import com.sillytavern.eink.network.WebViewProxyException
+import com.sillytavern.eink.network.WebViewProxyManager
 import com.sillytavern.eink.network.WebSessionAuthenticator
 import com.sillytavern.eink.web.SillyTavernWebChromeClient
 import com.sillytavern.eink.web.SillyTavernWebViewClient
@@ -62,6 +71,10 @@ class WebAppActivity : AppCompatActivity() {
     private lateinit var profile: StoredProfile
     private lateinit var origin: Uri
     private lateinit var credentialStore: CredentialStore
+    private lateinit var proxySettingsStore: ProxySettingsStore
+    private lateinit var einkSettingsStore: EinkSettingsStore
+    private lateinit var proxyManager: WebViewProxyManager
+    private lateinit var einkStyleInjector: EinkStyleInjector
     private val authenticator = WebSessionAuthenticator()
     private val einkController = GenericEinkController()
     private var authInProgress = false
@@ -70,7 +83,8 @@ class WebAppActivity : AppCompatActivity() {
     private var pendingPermission: PermissionRequest? = null
     private var activeBasicAuth: Pair<String, String>? = null
     private val attemptedBasicRealms = mutableSetOf<String>()
-    private var einkMode = true
+    private var browserReady = false
+    private var einkMode = EinkThemeMode.BALANCED
     private var textZoom = 100
     private val blobDownloadBridge by lazy {
         BlobDownloadBridge(this) { message ->
@@ -84,6 +98,9 @@ class WebAppActivity : AppCompatActivity() {
         setContentView(binding.root)
         applySystemBars(binding.webRoot)
         credentialStore = CredentialStore(this)
+        proxySettingsStore = ProxySettingsStore(this)
+        einkSettingsStore = EinkSettingsStore(this)
+        proxyManager = WebViewProxyManager(this)
         val stored = credentialStore.loadProfile()
         if (stored == null) {
             returnToLogin()
@@ -95,18 +112,38 @@ class WebAppActivity : AppCompatActivity() {
             return
         }
         origin = Uri.parse(validated.value)
-        val settings = getSharedPreferences(EINK_SETTINGS, Context.MODE_PRIVATE)
-        einkMode = settings.getBoolean(KEY_EINK_MODE, true)
-        textZoom = settings.getInt(KEY_TEXT_ZOOM, 100)
+        val settings = einkSettingsStore.load()
+        einkMode = settings.themeMode
+        textZoom = settings.textZoom
         webView = binding.webView
-        configureWebView()
+        einkStyleInjector = EinkStyleInjector(this, trustedOriginRule())
         configureToolbar()
-        if (savedInstanceState == null) {
-            binding.loadingStatus.text = getString(R.string.saved_credentials)
-            binding.loadingStatus.visibility = View.VISIBLE
-            lifecycleScope.launch { verifyPrivateDnsAndLoad() }
-        } else {
-            if (webView.restoreState(savedInstanceState) == null) webView.loadUrl(profile.baseUrl)
+        binding.loadingStatus.text = getString(R.string.saved_credentials)
+        binding.loadingStatus.visibility = View.VISIBLE
+        lifecycleScope.launch {
+            bootstrapWebView(savedInstanceState)
+        }
+    }
+
+    private suspend fun bootstrapWebView(savedInstanceState: Bundle?) {
+        try {
+            // ProxyController is asynchronous and process-wide: no WebView request may start before this returns.
+            proxyManager.apply(proxySettingsStore.load(), origin.host.orEmpty())
+            configureWebView()
+            if (profile.allowPrivateLanHttp) {
+                withContext(Dispatchers.IO) { NetworkPolicy.verifyPrivateDns(origin.host.orEmpty()) }
+            }
+            browserReady = true
+            updateNavigationButtons()
+            if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
+                webView.loadUrl(profile.baseUrl)
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: WebViewProxyException) {
+            showError(error.message ?: getString(R.string.connection_failed))
+        } catch (error: Throwable) {
+            showError(error.message ?: getString(R.string.connection_failed))
         }
     }
 
@@ -132,7 +169,12 @@ class WebAppActivity : AppCompatActivity() {
             setSupportMultipleWindows(true)
             javaScriptCanOpenWindowsAutomatically = true
         }
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+            // The app supplies deterministic paper colors; OEM darkening must not invert them again.
+            WebSettingsCompat.setAlgorithmicDarkeningAllowed(webView.settings, false)
+        }
         webView.isVerticalScrollBarEnabled = true
+        einkStyleInjector.registerForFutureDocuments(webView, einkMode)
         configureBlobDownloadBridge()
         webView.webViewClient = SillyTavernWebViewClient(
             trustedOrigin = origin,
@@ -166,21 +208,20 @@ class WebAppActivity : AppCompatActivity() {
     }
 
     private fun configureToolbar() = with(binding) {
-        back.setOnClickListener { if (webView.canGoBack()) webView.goBack() }
-        forward.setOnClickListener { if (webView.canGoForward()) webView.goForward() }
-        reload.setOnClickListener { webView.reload() }
-        home.setOnClickListener { webView.loadUrl(profile.baseUrl) }
+        back.setOnClickListener { if (browserReady && webView.canGoBack()) webView.goBack() }
+        forward.setOnClickListener { if (browserReady && webView.canGoForward()) webView.goForward() }
+        reload.setOnClickListener { if (browserReady) webView.reload() }
+        home.setOnClickListener { if (browserReady) webView.loadUrl(profile.baseUrl) }
         settings.setOnClickListener { showSettings() }
         updateNavigationButtons()
     }
 
     private fun configureBlobDownloadBridge() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
-        val allowedOrigin = "${origin.scheme}://${origin.encodedAuthority}"
         WebViewCompat.addWebMessageListener(
             webView,
             "EinkBlobDownload",
-            setOf(allowedOrigin),
+            setOf(trustedOriginRule()),
         ) { _, message, sourceOrigin, isMainFrame, _ ->
             if (isMainFrame && isTrustedOrigin(sourceOrigin)) {
                 runCatching {
@@ -192,15 +233,6 @@ class WebAppActivity : AppCompatActivity() {
                     )
                 }
             }
-        }
-    }
-
-    private suspend fun verifyPrivateDnsAndLoad() {
-        try {
-            if (profile.allowPrivateLanHttp) withContext(Dispatchers.IO) { NetworkPolicy.verifyPrivateDns(origin.host.orEmpty()) }
-            webView.loadUrl(profile.baseUrl)
-        } catch (error: Throwable) {
-            showError(error.message ?: getString(R.string.connection_failed))
         }
     }
 
@@ -332,11 +364,25 @@ class WebAppActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 4, 32, 0)
         }
-        val eink = CheckBox(this).apply {
-            text = getString(R.string.eink_mode)
-            isChecked = einkMode
+        content.addView(TextView(this).apply { text = getString(R.string.eink_theme); setPadding(0, 8, 0, 4) })
+        val themes = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
+        val themeOff = RadioButton(this).apply { text = getString(R.string.eink_theme_off); id = View.generateViewId() }
+        val themeBalanced = RadioButton(this).apply { text = getString(R.string.eink_theme_balanced); id = View.generateViewId() }
+        val themeHighContrast = RadioButton(this).apply {
+            text = getString(R.string.eink_theme_high_contrast)
+            id = View.generateViewId()
         }
-        content.addView(eink)
+        themes.addView(themeOff)
+        themes.addView(themeBalanced)
+        themes.addView(themeHighContrast)
+        themes.check(
+            when (einkMode) {
+                EinkThemeMode.OFF -> themeOff.id
+                EinkThemeMode.BALANCED -> themeBalanced.id
+                EinkThemeMode.HIGH_CONTRAST -> themeHighContrast.id
+            },
+        )
+        content.addView(themes)
         content.addView(TextView(this).apply { text = getString(R.string.font_size); setPadding(0, 16, 0, 4) })
         val sizes = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
         val small = RadioButton(this).apply { text = getString(R.string.font_size_small); id = View.generateViewId() }
@@ -345,6 +391,31 @@ class WebAppActivity : AppCompatActivity() {
         sizes.addView(small); sizes.addView(normal); sizes.addView(large)
         when (textZoom) { in 0..90 -> sizes.check(small.id); in 111..200 -> sizes.check(large.id); else -> sizes.check(normal.id) }
         content.addView(sizes)
+        fun persistDisplayDraft() {
+            einkMode = when (themes.checkedRadioButtonId) {
+                themeOff.id -> EinkThemeMode.OFF
+                themeHighContrast.id -> EinkThemeMode.HIGH_CONTRAST
+                else -> EinkThemeMode.BALANCED
+            }
+            textZoom = when (sizes.checkedRadioButtonId) { small.id -> 90; large.id -> 120; else -> 100 }
+            einkSettingsStore.save(EinkWebSettings(einkMode, textZoom))
+            webView.settings.textZoom = textZoom
+            einkStyleInjector.registerForFutureDocuments(webView, einkMode)
+            injectEinkStyles()
+        }
+        var settingsDialog: AlertDialog? = null
+        content.addView(Button(this).apply {
+            text = getString(R.string.proxy_settings)
+            setOnClickListener {
+                ProxySettingsDialog.show(this@WebAppActivity, proxySettingsStore.load()) { proxy ->
+                    persistDisplayDraft()
+                    proxySettingsStore.save(proxy)
+                    settingsDialog?.dismiss()
+                    // Recreating destroys old WebView sockets before the process-wide override changes.
+                    recreate()
+                }
+            }
+        })
         content.addView(Button(this).apply {
             text = getString(R.string.logout)
             setOnClickListener { logout() }
@@ -353,22 +424,22 @@ class WebAppActivity : AppCompatActivity() {
             text = getString(R.string.switch_server)
             setOnClickListener { clearCredentials() }
         })
-        AlertDialog.Builder(this)
+        val scroll = ScrollView(this).apply { addView(content) }
+        val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.settings)
-            .setView(content)
-            .setNeutralButton(R.string.full_refresh) { _, _ -> einkController.fullRefresh(webView) }
+            .setView(scroll)
+            .setNeutralButton(R.string.full_refresh, null)
             .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                einkMode = eink.isChecked
-                textZoom = when (sizes.checkedRadioButtonId) { small.id -> 90; large.id -> 120; else -> 100 }
-                getSharedPreferences(EINK_SETTINGS, MODE_PRIVATE).edit()
-                    .putBoolean(KEY_EINK_MODE, einkMode)
-                    .putInt(KEY_TEXT_ZOOM, textZoom)
-                    .apply()
-                webView.settings.textZoom = textZoom
-                injectEinkStyles()
+            .setPositiveButton(android.R.string.ok) { _, _ -> persistDisplayDraft() }
+            .create()
+        settingsDialog = dialog
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                persistDisplayDraft()
+                einkController.fullRefresh(webView)
             }
-            .show()
+        }
+        dialog.show()
     }
 
     private fun clearCredentials() {
@@ -394,19 +465,14 @@ class WebAppActivity : AppCompatActivity() {
         val current = webView.url?.let(Uri::parse) ?: return
         if (!isTrustedOrigin(current)) return
         webView.evaluateJavascript(BLOB_DOWNLOAD_SCRIPT, null)
-        if (!einkMode) {
-            webView.evaluateJavascript("var s=document.getElementById('st-eink-style');if(s)s.remove();", null)
-            return
-        }
-        val css = resources.openRawResource(R.raw.eink).bufferedReader().use { it.readText() }
-        val encoded = Base64.encodeToString(css.toByteArray(), Base64.NO_WRAP)
-        val script = """(function(){var s=document.getElementById('st-eink-style');if(!s){s=document.createElement('style');s.id='st-eink-style';document.head.appendChild(s);}s.textContent=atob('$encoded');})();"""
-        webView.evaluateJavascript(script, null)
+        einkStyleInjector.applyToCurrentDocument(webView, einkMode)
     }
 
     private fun updateNavigationButtons() = with(binding) {
-        back.isEnabled = webView.canGoBack()
-        forward.isEnabled = webView.canGoForward()
+        back.isEnabled = browserReady && webView.canGoBack()
+        forward.isEnabled = browserReady && webView.canGoForward()
+        reload.isEnabled = browserReady
+        home.isEnabled = browserReady
     }
 
     private fun showError(message: String) {
@@ -435,6 +501,8 @@ class WebAppActivity : AppCompatActivity() {
         val originPort = origin.port.takeIf { it != -1 } ?: if (origin.scheme == "https") 443 else 80
         return uri.scheme.equals(origin.scheme, true) && uri.host.equals(origin.host, true) && currentPort == originPort
     }
+
+    private fun trustedOriginRule(): String = "${origin.scheme}://${origin.encodedAuthority}"
 
     private fun returnToLogin() {
         startActivity(Intent(this, MainActivity::class.java).apply {
@@ -474,17 +542,18 @@ class WebAppActivity : AppCompatActivity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        if (::webView.isInitialized) webView.saveState(outState)
+        if (::webView.isInitialized && browserReady) webView.saveState(outState)
         super.onSaveInstanceState(outState)
     }
 
     override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+        if (browserReady && webView.canGoBack()) webView.goBack() else super.onBackPressed()
         updateNavigationButtons()
     }
 
     override fun onDestroy() {
         einkController.dispose()
+        if (::einkStyleInjector.isInitialized) einkStyleInjector.dispose()
         if (::webView.isInitialized) {
             webView.stopLoading()
             webView.destroy()
@@ -517,9 +586,6 @@ class WebAppActivity : AppCompatActivity() {
     companion object {
         private const val FILE_CHOOSER_REQUEST = 4101
         private const val PERMISSION_REQUEST = 4102
-        private const val EINK_SETTINGS = "eink_web_settings"
-        private const val KEY_EINK_MODE = "enabled"
-        private const val KEY_TEXT_ZOOM = "text_zoom"
         private const val MAX_BLOB_BASE64_LENGTH = 64 * 1024 * 1024
         private val BLOB_DOWNLOAD_SCRIPT = """
             (function(){if(window.__stEinkDownloadHook)return;window.__stEinkDownloadHook=true;

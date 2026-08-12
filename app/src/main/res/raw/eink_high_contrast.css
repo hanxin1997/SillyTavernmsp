@@ -1,0 +1,97 @@
+/* Strict paper-white theme for reflective displays. Functional media remains visible. */
+:root {
+    color-scheme: light !important;
+    --st-eink-border: #000 !important;
+    --interactable-outline-color: #000 !important;
+    --interactable-outline-color-faint: #555 !important;
+    --greyCAIbg: #fff !important;
+    --SmartThemeBodyColor: #000 !important;
+    --SmartThemeEmColor: #000 !important;
+    --SmartThemeUnderlineColor: #000 !important;
+    --SmartThemeQuoteColor: #111 !important;
+    --SmartThemeBlurTintColor: #fff !important;
+    --SmartThemeChatTintColor: #fff !important;
+    --SmartThemeUserMesBlurTintColor: #eee !important;
+    --SmartThemeBotMesBlurTintColor: #fff !important;
+    --SmartThemeBlurStrength: 0px !important;
+    --SmartThemeShadowColor: transparent !important;
+    --SmartThemeBorderColor: #000 !important;
+}
+
+*, *::before, *::after {
+    animation-duration: 0.001s !important;
+    -webkit-animation-duration: 0.001s !important;
+    animation-delay: 0s !important;
+    -webkit-animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    -webkit-animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+    -webkit-transition-duration: 0.001s !important;
+    transition-delay: 0s !important;
+    -webkit-transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html, body, #sheld, #chat, #form_sheld, .mes, .drawer-content, .popup {
+    background-color: #fff !important;
+    color: #000 !important;
+}
+
+#bg1, #bg_custom {
+    display: none !important;
+    background-image: none !important;
+}
+
+a, a:visited, .link, .clickable {
+    color: #000 !important;
+    text-decoration: underline !important;
+    text-decoration-thickness: 1px !important;
+}
+
+button, input, textarea, select, .menu_button, .inline-drawer-toggle {
+    background-color: #fff !important;
+    color: #000 !important;
+    border-color: #000 !important;
+}
+
+input::placeholder, textarea::placeholder {
+    color: #555 !important;
+    opacity: 1 !important;
+}
+
+button:disabled, input:disabled, textarea:disabled, select:disabled, [aria-disabled="true"] {
+    background-color: #eee !important;
+    color: #555 !important;
+}
+
+input:checked, [aria-pressed="true"], [aria-selected="true"], [role="tab"][aria-selected="true"], .selected {
+    background-color: #000 !important;
+    color: #fff !important;
+    border-color: #000 !important;
+    font-weight: 700 !important;
+}
+
+input:invalid, [aria-invalid="true"], .error {
+    border-style: double !important;
+    border-width: 3px !important;
+}
+
+::selection {
+    background: #000 !important;
+    color: #fff !important;
+}
+
+:focus-visible {
+    outline: 2px solid #000 !important;
+    outline-offset: 2px !important;
+}
+
+/* Images and video are content, not decoration; remove only costly effects. */
+img, video, canvas {
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
