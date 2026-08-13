@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!--
+        A simplified, high-contrast SillyTavern brain/circuit mark. All important
+        geometry stays within the adaptive-icon safe region for e-ink launchers.
+    -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M43,35 L42,31 M34,45 L29,45 M34,62 L29,62 M43,75 L42,77 M65,35 L66,31 M74,45 L79,45 M74,62 L79,62 M65,75 L66,77"
+        android:strokeColor="@color/ink_black"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="4" />
+    <path
+        android:fillColor="@color/ink_black"
+        android:pathData="M42,25.5 C40.62,25.5 39.5,26.62 39.5,28 C39.5,29.38 40.62,30.5 42,30.5 C43.38,30.5 44.5,29.38 44.5,28 C44.5,26.62 43.38,25.5 42,25.5 Z M26,42.5 C24.62,42.5 23.5,43.62 23.5,45 C23.5,46.38 24.62,47.5 26,47.5 C27.38,47.5 28.5,46.38 28.5,45 C28.5,43.62 27.38,42.5 26,42.5 Z M26,59.5 C24.62,59.5 23.5,60.62 23.5,62 C23.5,63.38 24.62,64.5 26,64.5 C27.38,64.5 28.5,63.38 28.5,62 C28.5,60.62 27.38,59.5 26,59.5 Z M42,77.5 C40.62,77.5 39.5,78.62 39.5,80 C39.5,81.38 40.62,82.5 42,82.5 C43.38,82.5 44.5,81.38 44.5,80 C44.5,78.62 43.38,77.5 42,77.5 Z M66,25.5 C64.62,25.5 63.5,26.62 63.5,28 C63.5,29.38 64.62,30.5 66,30.5 C67.38,30.5 68.5,29.38 68.5,28 C68.5,26.62 67.38,25.5 66,25.5 Z M82,42.5 C80.62,42.5 79.5,43.62 79.5,45 C79.5,46.38 80.62,47.5 82,47.5 C83.38,47.5 84.5,46.38 84.5,45 C84.5,43.62 83.38,42.5 82,42.5 Z M82,59.5 C80.62,59.5 79.5,60.62 79.5,62 C79.5,63.38 80.62,64.5 82,64.5 C83.38,64.5 84.5,63.38 84.5,62 C84.5,60.62 83.38,59.5 82,59.5 Z M66,77.5 C64.62,77.5 63.5,78.62 63.5,80 C63.5,81.38 64.62,82.5 66,82.5 C67.38,82.5 68.5,81.38 68.5,80 C68.5,78.62 67.38,77.5 66,77.5 Z" />
+    <path
+        android:fillColor="@color/ink_black"
+        android:pathData="M54,38 C50,31 43,29 38,33 C33,36 32,42 35,47 C30,51 30,59 34,63 C31,70 37,77 44,77 C49,77 52,74 54,70 Z M54,38 C58,31 65,29 70,33 C75,36 76,42 73,47 C78,51 78,59 74,63 C77,70 71,77 64,77 C59,77 56,74 54,70 Z" />
+
+    <!-- The white strokes form an ST monogram as negative space in the brain. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M51,45 L43,45 C40,45 38,47 38,50 C38,54 40,56 44,56 L48,56 C51,56 52,58 52,61 C52,64 50,66 47,66 L38,66 M56,45 L70,45 M63,45 L63,66"
+        android:strokeColor="@color/ink_white"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="5" />
+</vector>

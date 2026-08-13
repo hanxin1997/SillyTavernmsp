@@ -6,12 +6,14 @@ on:
   push:
     paths:
       - "app/**"
+      - "scripts/**"
       - "*.gradle.kts"
       - "gradle.properties"
       - ".github/workflows/build-extension.yml"
   pull_request:
     paths:
       - "app/**"
+      - "scripts/**"
       - "*.gradle.kts"
       - "gradle.properties"
       - ".github/workflows/build-extension.yml"
@@ -51,6 +53,10 @@ jobs:
       - name: Install Android SDK packages
         shell: bash
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Validate launcher icon resources
+        shell: pwsh
+        run: ./scripts/Test-LauncherIcon.ps1
 
       - name: Run tests, lint, and build APK
         shell: bash
