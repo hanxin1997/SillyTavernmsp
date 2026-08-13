@@ -3,14 +3,13 @@
     android:id="@+id/web_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ink_white"
-    android:fitsSystemWindows="true">
+    android:background="@color/ink_white">
 
     <WebView
         android:id="@+id/web_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginBottom="48dp"
+        android:layout_marginBottom="@dimen/browser_bar_height"
         android:background="@color/ink_white"
         android:overScrollMode="never" />
 
@@ -19,7 +18,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_marginBottom="48dp"
+        android:layout_marginBottom="@dimen/browser_bar_height"
         android:background="@color/ink_white"
         android:gravity="center"
         android:padding="20dp"
@@ -31,7 +30,7 @@
     <LinearLayout
         android:id="@+id/browser_bar"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="@dimen/browser_bar_height"
         android:layout_gravity="bottom"
         android:background="@drawable/browser_bar_background"
         android:elevation="0dp"
@@ -72,6 +71,14 @@
             android:src="@android:drawable/ic_menu_view"
             android:tooltipText="@string/home" />
 
+        <ImageButton
+            android:id="@+id/fullscreen"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:contentDescription="@string/enter_fullscreen"
+            android:src="@drawable/ic_fullscreen"
+            android:tooltipText="@string/enter_fullscreen" />
+
         <View
             android:layout_width="0dp"
             android:layout_height="1dp"
@@ -85,4 +92,17 @@
             android:src="@android:drawable/ic_menu_preferences"
             android:tooltipText="@string/settings" />
     </LinearLayout>
+
+    <!-- Keep this native control above the WebView so an e-ink user can always leave fullscreen. -->
+    <ImageButton
+        android:id="@+id/fullscreen_restore"
+        android:layout_width="72dp"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:background="@drawable/fullscreen_restore_background"
+        android:contentDescription="@string/exit_fullscreen"
+        android:padding="12dp"
+        android:src="@drawable/ic_fullscreen_exit"
+        android:tooltipText="@string/exit_fullscreen"
+        android:visibility="gone" />
 </FrameLayout>

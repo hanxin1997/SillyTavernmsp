@@ -11,6 +11,8 @@
     <string name="forward">前进</string>
     <string name="reload">刷新</string>
     <string name="home">主页</string>
+    <string name="enter_fullscreen">进入全屏</string>
+    <string name="exit_fullscreen">退出全屏</string>
     <string name="settings">设置</string>
     <string name="saved_credentials">已保存账号，正在自动登录…</string>
     <string name="connecting">正在连接服务器…</string>

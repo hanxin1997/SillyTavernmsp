@@ -12,6 +12,7 @@ import android.os.Environment
 import android.util.Base64
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.HttpAuthHandler
 import android.webkit.PermissionRequest
@@ -86,6 +87,7 @@ class WebAppActivity : AppCompatActivity() {
     private var browserReady = false
     private var einkMode = EinkThemeMode.BALANCED
     private var textZoom = 100
+    private var fullscreenState = ReadingFullscreenState()
     private val blobDownloadBridge by lazy {
         BlobDownloadBridge(this) { message ->
             runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
@@ -96,7 +98,10 @@ class WebAppActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityWebAppBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        applySystemBars(binding.webRoot)
+        applySystemBars(binding.webRoot) { imeVisible ->
+            fullscreenState = fullscreenState.copy(imeVisible = imeVisible)
+            updateFullscreenRestoreVisibility()
+        }
         credentialStore = CredentialStore(this)
         proxySettingsStore = ProxySettingsStore(this)
         einkSettingsStore = EinkSettingsStore(this)
@@ -118,6 +123,7 @@ class WebAppActivity : AppCompatActivity() {
         webView = binding.webView
         einkStyleInjector = EinkStyleInjector(this, trustedOriginRule())
         configureToolbar()
+        setReadingFullscreen(false, refresh = false)
         binding.loadingStatus.text = getString(R.string.saved_credentials)
         binding.loadingStatus.visibility = View.VISIBLE
         lifecycleScope.launch {
@@ -212,8 +218,41 @@ class WebAppActivity : AppCompatActivity() {
         forward.setOnClickListener { if (browserReady && webView.canGoForward()) webView.goForward() }
         reload.setOnClickListener { if (browserReady) webView.reload() }
         home.setOnClickListener { if (browserReady) webView.loadUrl(profile.baseUrl) }
+        fullscreen.setOnClickListener { setReadingFullscreen(true) }
+        fullscreenRestore.setOnClickListener { setReadingFullscreen(false) }
         settings.setOnClickListener { showSettings() }
         updateNavigationButtons()
+    }
+
+    private fun setReadingFullscreen(enabled: Boolean, refresh: Boolean = true) {
+        val changed = fullscreenState.enabled != enabled
+        fullscreenState = fullscreenState.copy(enabled = enabled)
+        binding.browserBar.visibility = if (fullscreenState.browserBarVisible) View.VISIBLE else View.GONE
+
+        // Both layers reserve toolbar space in normal mode; update them together to avoid a blank strip.
+        val bottomMargin = if (enabled) 0 else resources.getDimensionPixelSize(R.dimen.browser_bar_height)
+        setBottomMargin(binding.webView, bottomMargin)
+        setBottomMargin(binding.loadingStatus, bottomMargin)
+        updateFullscreenRestoreVisibility()
+        setSystemBarsVisible(!enabled)
+        binding.webRoot.requestApplyInsets()
+        binding.webRoot.requestLayout()
+
+        if (changed && refresh) {
+            // Delay until the new geometry is laid out, then clear stale toolbar pixels on e-ink screens.
+            binding.webRoot.post { einkController.fullRefresh(binding.webRoot) }
+        }
+    }
+
+    private fun updateFullscreenRestoreVisibility() {
+        binding.fullscreenRestore.visibility = if (fullscreenState.restoreControlVisible) View.VISIBLE else View.GONE
+    }
+
+    private fun setBottomMargin(view: View, bottomMargin: Int) {
+        val params = view.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+        if (params.bottomMargin == bottomMargin) return
+        params.bottomMargin = bottomMargin
+        view.layoutParams = params
     }
 
     private fun configureBlobDownloadBridge() {
@@ -546,7 +585,20 @@ class WebAppActivity : AppCompatActivity() {
         super.onSaveInstanceState(outState)
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && ::binding.isInitialized) {
+            // Dialogs, pickers, and transient system gestures may reveal the bars; restore the chosen mode.
+            setSystemBarsVisible(!fullscreenState.enabled)
+            binding.webRoot.requestApplyInsets()
+        }
+    }
+
     override fun onBackPressed() {
+        if (fullscreenState.enabled) {
+            setReadingFullscreen(false)
+            return
+        }
         if (browserReady && webView.canGoBack()) webView.goBack() else super.onBackPressed()
         updateNavigationButtons()
     }
